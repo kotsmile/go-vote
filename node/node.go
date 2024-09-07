@@ -78,27 +78,35 @@ func (n *Node) Start() error {
 	}
 }
 
-func (n *Node) SendVoting(voting blockchain.Voting) error {
+func (n *Node) SendVoting(voting blockchain.Voting) (string, error) {
+	return n.SendData(voting.Data())
+}
+
+func (n *Node) SendVote(vote blockchain.Vote) (string, error) {
+	return n.SendData(vote.Data())
+}
+
+func (n *Node) SendData(data []byte) (string, error) {
 	lastBlock := n.Chain.GetLastBlock()
 
-	newBlock, err := blockchain.NewBlock(lastBlock, n.Signer, voting.Data())
+	newBlock, err := blockchain.NewBlock(lastBlock, n.Signer, data)
 	if err != nil {
-		return fmt.Errorf("failed to create new block: %v", err)
+		return "", fmt.Errorf("failed to create new block: %v", err)
 	}
 
 	if err := newBlock.Mine(0, math.MaxUint64); err != nil {
-		return fmt.Errorf("failed to mine block %+v: %v", newBlock, err)
+		return "", fmt.Errorf("failed to mine block %+v: %v", newBlock, err)
 	}
 
 	if err := newBlock.Sign(); err != nil {
-		return fmt.Errorf("failed to sign block %+v: %v", newBlock, err)
+		return "", fmt.Errorf("failed to sign block %+v: %v", newBlock, err)
 	}
 
 	if !n.Chain.PushBlock(newBlock) {
-		return fmt.Errorf("failed to push block %+v", newBlock)
+		return "", fmt.Errorf("failed to push block %+v", newBlock)
 	}
 
-	return nil
+	return newBlock.BlockHash, nil
 }
 
 func (n *Node) onPeer(peer p2p.Peer) error {

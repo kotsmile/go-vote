@@ -45,11 +45,14 @@ func main() {
 	node1.Transport.Dial(MainNodeAddr)
 	time.Sleep(time.Second * 1)
 
-	if err := node1.SendVoting(blockchain.NewVoting("test voting")); err != nil {
+	if _, err := node1.SendVoting(blockchain.NewVoting("test voting")); err != nil {
 		panic(fmt.Errorf("failed to send voting: %v", err))
 	}
-	if err := node1.SendVoting(blockchain.NewVoting("test voting2")); err != nil {
+	if _, err := node1.SendVoting(blockchain.NewVoting("test voting2")); err != nil {
 		panic(fmt.Errorf("failed to send voting: %v", err))
+	}
+	if _, err := node1.SendVote(blockchain.NewVote("11", true)); err != nil {
+		panic(fmt.Errorf("failed to send vote: %v", err))
 	}
 
 	node1.Chain.PrintDebug()

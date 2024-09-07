@@ -9,6 +9,21 @@ import (
 	"github.com/kotsmile/go-vote/server"
 )
 
+// block, err := blockchain.NewBlock(blockchain.GenesisBlock, wallet, []byte{})
+//
+// block.Mine(3973551, 3973551+1)
+// block.Sign()
+//
+// jsonBlock, err := json.Marshal(block)
+// if err != nil {
+// 	fmt.Printf("failed to json object %+v: %v\n", block, err)
+// 	return
+// }
+//
+// fmt.Printf("block: %s\n", string(jsonBlock))
+//
+// fmt.Println(block.Verify())
+
 func main() {
 	wallet := blockchain.NewWalletFromString("8ed1d4ab8975e20a666f42783be40a345f1acffbf9660db9bd93a87883f4ff6c")
 
@@ -33,26 +48,11 @@ func main() {
 		panic("peer is nil")
 	}
 
-	response, err := server.SendGetLatestBlock(server1, peer, server.GetLatestBlockPayload{})
+	response, err := server1.SendGetLatestBlock(peer, server.GetLatestBlockPayload{})
 	if err != nil {
 		fmt.Printf("failed to send get latest block: %v\n", err)
 		return
 	}
 
 	fmt.Printf("response: %+v\n", response)
-
-	// block, err := blockchain.NewBlock(blockchain.GenesisBlock, wallet, []byte{})
-	//
-	// block.Mine(3973551, 3973551+1)
-	// block.Sign()
-	//
-	// jsonBlock, err := json.Marshal(block)
-	// if err != nil {
-	// 	fmt.Printf("failed to json object %+v: %v\n", block, err)
-	// 	return
-	// }
-	//
-	// fmt.Printf("block: %s\n", string(jsonBlock))
-	//
-	// fmt.Println(block.Verify())
 }

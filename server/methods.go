@@ -21,7 +21,7 @@ type BroadcastBlockPayload struct {
 
 type BroadcastBlockResponse struct{}
 
-func SendBroadcastBlock(peer p2p.Peer, payload BroadcastBlockPayload) (BroadcastBlockResponse, error) {
+func (s *Server) SendBroadcastBlock(peer p2p.Peer, payload BroadcastBlockPayload) (BroadcastBlockResponse, error) {
 	id := uuid.New().String()
 
 	payloadData, err := json.Marshal(payload)
@@ -48,7 +48,7 @@ type GetLatestBlockResponse struct {
 	Block blockchain.Block `json:"block"`
 }
 
-func SendGetLatestBlock(server *Server, peer p2p.Peer, payload GetLatestBlockPayload) (GetLatestBlockResponse, error) {
+func (s *Server) SendGetLatestBlock(peer p2p.Peer, payload GetLatestBlockPayload) (GetLatestBlockResponse, error) {
 	id := uuid.New().String()
 
 	payloadData, err := json.Marshal(payload)
@@ -66,7 +66,7 @@ func SendGetLatestBlock(server *Server, peer p2p.Peer, payload GetLatestBlockPay
 		return GetLatestBlockResponse{}, fmt.Errorf("failed to send rpc %+v: %v", rpc, err)
 	}
 
-	rpc, err = server.GetRpcById(id)
+	rpc, err = s.GetRpcById(id)
 	if err != nil {
 		return GetLatestBlockResponse{}, fmt.Errorf("failed to get rpc response %s: %v", id, err)
 	}

@@ -48,8 +48,7 @@ type Address string
 
 func NewAddressFromPublicKey(publicKey *ecdsa.PublicKey) Address {
 	publicKeyBytes := append(publicKey.X.Bytes(), publicKey.Y.Bytes()...)
-	hash, _ := Hash(publicKeyBytes)
-	return Address(hex.EncodeToString(hash[:]))
+	return Address(hex.EncodeToString(publicKeyBytes[:]))
 }
 
 func (a Address) PublicKey() (*ecdsa.PublicKey, error) {
@@ -83,6 +82,10 @@ func NewRandomWallet() Wallet {
 
 	dBytes := privateKey.D.Bytes()
 	return Wallet(hex.EncodeToString(dBytes))
+}
+
+func NewWalletFromString(wallet string) Wallet {
+	return Wallet(wallet)
 }
 
 func (w Wallet) PrivateKey() (*ecdsa.PrivateKey, error) {

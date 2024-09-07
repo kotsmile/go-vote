@@ -3,17 +3,16 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"math"
 
 	"github.com/kotsmile/go-vote/blockchain"
 )
 
 func main() {
-	wallet := blockchain.NewRandomWallet()
+	wallet := blockchain.NewWalletFromString("8ed1d4ab8975e20a666f42783be40a345f1acffbf9660db9bd93a87883f4ff6c")
 
 	block, err := blockchain.NewBlock(blockchain.GenesisBlock, wallet, []byte{})
 
-	block.Mine(0, math.MaxUint64)
+	block.Mine(3973551, 3973551+1)
 	block.Sign()
 
 	jsonBlock, err := json.Marshal(block)
@@ -23,4 +22,6 @@ func main() {
 	}
 
 	fmt.Printf("block: %s\n", string(jsonBlock))
+
+	fmt.Println(block.Verify())
 }

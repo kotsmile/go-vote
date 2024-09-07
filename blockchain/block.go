@@ -104,6 +104,21 @@ func (b *Block) BlockDataWithSalt(salt uint64) BlockData {
 	}
 }
 
+func (b *Block) Verify() (bool, error) {
+	signerAddress := b.From
+	data, err := b.SignBlockData.Hash()
+	if err != nil {
+		return false, fmt.Errorf("failed to hash block: %v", err)
+	}
+
+	ok, err := b.Signature.Verify(signerAddress, data[:])
+	if err != nil {
+		return false, fmt.Errorf("failed to verify signagure: %v", err)
+	}
+
+	return ok, nil
+}
+
 type BlockData struct {
 	PrevBlockHash string  `json:"prevBlockHash"`
 	Nonce         uint64  `json:"nonce"`

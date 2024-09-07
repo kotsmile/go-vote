@@ -60,11 +60,11 @@ func (b *Block) Mine(start uint64, stop uint64) error {
 		if difficulty >= b.Difficulty {
 			b.Salt = salt
 			b.BlockHash = hex.EncodeToString(blockHash[:])
-			break
+			return nil
 		}
 	}
 
-	return nil
+	return fmt.Errorf("failed to mine block")
 }
 
 func (b Block) Equal(other Block) bool {
@@ -116,7 +116,9 @@ func (b *Block) Verify() (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("failed to hash block: %v", err)
 	}
-	if b.BlockHash != hex.EncodeToString(blockHash[:]) {
+
+	blockDataHash, _ := b.BlockData.Hash()
+	if b.BlockHash != hex.EncodeToString(blockDataHash[:]) {
 		return false, nil
 	}
 

@@ -1,5 +1,7 @@
 package blockchain
 
+import "fmt"
+
 type Chain struct {
 	Blocks []Block
 }
@@ -14,6 +16,7 @@ func (c *Chain) Validate() bool {
 	for i, block := range c.Blocks {
 		if i == 0 {
 			if !block.Equal(GenesisBlock) {
+				fmt.Println("incorrect genesis block")
 				return false
 			}
 			continue
@@ -21,6 +24,12 @@ func (c *Chain) Validate() bool {
 
 		prevBlock := c.Blocks[i-1]
 		if block.PrevBlockHash != prevBlock.BlockHash {
+			fmt.Println("incorrect prevBlockHash")
+			return false
+		}
+
+		if block.Nonce-1 != prevBlock.Nonce {
+			fmt.Println("incorrect nonce")
 			return false
 		}
 
@@ -29,6 +38,7 @@ func (c *Chain) Validate() bool {
 			return false
 		}
 		if !res {
+			fmt.Println("incorrect signature")
 			return false
 		}
 	}
@@ -46,7 +56,7 @@ func (c *Chain) PushBlock(b Block) bool {
 	return true
 }
 
-func (c *Chain) GetLatestBlock() Block {
+func (c *Chain) GetLastBlock() Block {
 	return c.GetBlock(c.Length() - 1)
 }
 
@@ -56,4 +66,18 @@ func (c Chain) Length() int {
 
 func (c Chain) GetBlock(nonce int) Block {
 	return c.Blocks[nonce]
+}
+
+func (c Chain) PrintDebug() {
+	for i, block := range c.Blocks {
+		fmt.Printf("Block #%d\n", i)
+		fmt.Printf("\tprevBlockHash: %s\n", block.PrevBlockHash)
+		fmt.Printf("\tnonce: %d\n", block.Nonce)
+		fmt.Printf("\tfrom: %s\n", block.From)
+		fmt.Printf("\tdata: %s\n", string(block.Data))
+		fmt.Printf("\tdifficulty: %d\n", block.Difficulty)
+		fmt.Printf("\tsalt: %d\n", block.Salt)
+		fmt.Printf("\tblockHash: %s\n", block.BlockHash)
+		fmt.Println()
+	}
 }

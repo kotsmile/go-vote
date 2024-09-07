@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/kotsmile/go-vote/blockchain"
@@ -27,14 +28,16 @@ import (
 const MainNodeAddr = ":3001"
 
 func main() {
+	var wg sync.WaitGroup
+
 	fmt.Println("starting main node")
-	mainNode := node.NewNode(p2p.NewTcpTransport(MainNodeAddr), blockchain.NewRandomWallet())
+	mainNode := node.NewNode(&wg, p2p.NewTcpTransport(MainNodeAddr), blockchain.NewRandomWallet())
 	go mainNode.Start()
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("starting user node 1")
 	wallet := blockchain.NewWalletFromString("8ed1d4ab8975e20a666f42783be40a345f1acffbf9660db9bd93a87883f4ff6c")
-	node1 := node.NewNode(p2p.NewTcpTransport(":3002"), wallet)
+	node1 := node.NewNode(&wg, p2p.NewTcpTransport(":3002"), wallet)
 	go node1.Start()
 	time.Sleep(time.Second * 1)
 
@@ -42,21 +45,14 @@ func main() {
 	node1.Transport.Dial(MainNodeAddr)
 	time.Sleep(time.Second * 1)
 
-	var peer p2p.Peer
-	for _, v := range node1.Peers {
-		peer = v
+	if err := node1.SendVoting(blockchain.NewVoting("test voting")); err != nil {
+		panic(fmt.Errorf("failed to send voting: %v", err))
 	}
-	if peer == nil {
-		panic("peer is nil")
-	}
-
-	err := node1.Send(peer, node.GetBlockRpcMethod, node.GetBlockPayload{
-		Nonce: 0,
-	})
-	if err != nil {
-		panic(fmt.Errorf("failed to send: %v", err))
+	if err := node1.SendVoting(blockchain.NewVoting("test voting2")); err != nil {
+		panic(fmt.Errorf("failed to send voting: %v", err))
 	}
 
-	fmt.Println("waiting for response")
-	time.Sleep(time.Second * 1)
+	node1.Chain.PrintDebug()
+
+	wg.Wait()
 }

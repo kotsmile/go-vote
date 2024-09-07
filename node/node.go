@@ -3,6 +3,8 @@ package node
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"sync"
 
 	"github.com/kotsmile/go-vote/blockchain"
 	"github.com/kotsmile/go-vote/p2p"
@@ -13,14 +15,17 @@ type Node struct {
 	Transport p2p.Transport
 	Peers     map[string]p2p.Peer
 	Chain     blockchain.Chain
+	wg        *sync.WaitGroup
 }
 
-func NewNode(transport p2p.Transport, signer blockchain.Wallet) *Node {
+func NewNode(wg *sync.WaitGroup, transport p2p.Transport, signer blockchain.Wallet) *Node {
+	wg.Add(1)
 	server := Node{
 		Transport: transport,
 		Signer:    signer,
 		Chain:     blockchain.NewChain([]blockchain.Block{blockchain.GenesisBlock}), // TODO: get from sqlite
 		Peers:     make(map[string]p2p.Peer),
+		wg:        wg,
 	}
 
 	transport.SetOnPeer(server.onPeer)
@@ -48,7 +53,7 @@ func (n *Node) Start() error {
 				continue
 			}
 
-			block := n.Chain.GetLatestBlock()
+			block := n.Chain.GetLastBlock()
 			if payload.Nonce != -1 && payload.Nonce < n.Chain.Length() {
 				block = n.Chain.GetBlock(payload.Nonce)
 			}
@@ -71,6 +76,29 @@ func (n *Node) Start() error {
 			fmt.Printf("block %+v", payload.Block)
 		}
 	}
+}
+
+func (n *Node) SendVoting(voting blockchain.Voting) error {
+	lastBlock := n.Chain.GetLastBlock()
+
+	newBlock, err := blockchain.NewBlock(lastBlock, n.Signer, voting.Data())
+	if err != nil {
+		return fmt.Errorf("failed to create new block: %v", err)
+	}
+
+	if err := newBlock.Mine(0, math.MaxUint64); err != nil {
+		return fmt.Errorf("failed to mine block %+v: %v", newBlock, err)
+	}
+
+	if err := newBlock.Sign(); err != nil {
+		return fmt.Errorf("failed to sign block %+v: %v", newBlock, err)
+	}
+
+	if !n.Chain.PushBlock(newBlock) {
+		return fmt.Errorf("failed to push block %+v", newBlock)
+	}
+
+	return nil
 }
 
 func (n *Node) onPeer(peer p2p.Peer) error {

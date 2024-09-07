@@ -3,8 +3,6 @@ package node
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
-	"time"
 
 	"github.com/kotsmile/go-vote/blockchain"
 	"github.com/kotsmile/go-vote/p2p"
@@ -15,9 +13,6 @@ type Node struct {
 	Transport p2p.Transport
 	Peers     map[string]p2p.Peer
 	Chain     blockchain.Chain
-
-	responses     map[string]p2p.Rpc
-	responseMutex sync.Mutex
 }
 
 func NewNode(transport p2p.Transport, signer blockchain.Wallet) *Node {
@@ -26,7 +21,6 @@ func NewNode(transport p2p.Transport, signer blockchain.Wallet) *Node {
 		Signer:    signer,
 		Chain:     blockchain.NewChain([]blockchain.Block{blockchain.GenesisBlock}), // TODO: get from sqlite
 		Peers:     make(map[string]p2p.Peer),
-		responses: make(map[string]p2p.Rpc),
 	}
 
 	transport.SetOnPeer(server.onPeer)
@@ -41,62 +35,42 @@ func (n *Node) Start() error {
 	for {
 		rpc := <-n.Transport.Consume()
 		switch rpc.Method {
-		case GetLatestBlockRpcMethod:
-			conn, ok := n.Peers[rpc.From]
+		case GetBlockRpcMethod:
+			peer, ok := n.Peers[rpc.From]
 			if !ok {
 				fmt.Printf("failed to find peer with %s", rpc.From)
 				continue
 			}
 
-			block := n.GetLatestBlock()
-			payload, err := json.Marshal(GetLatestBlockResponse{
-				Block: block,
-			})
-			if err != nil {
-				fmt.Printf("failed to serialize response: %v\n", err)
+			var payload GetBlockPayload
+			if err := json.Unmarshal(rpc.Payload, &payload); err != nil {
+				fmt.Printf("failed deserialize payload %v: %v", rpc.Payload, err)
 				continue
 			}
 
-			if err := conn.Send(p2p.Rpc{
-				Id:      rpc.Id,
-				Method:  ResponseRpcMethod,
-				Payload: payload,
-			}); err != nil {
-				fmt.Printf("failed to send response on %+v: %v\n", rpc, err)
+			block := n.Chain.GetLatestBlock()
+			if payload.Nonce != -1 && payload.Nonce < n.Chain.Length() {
+				block = n.Chain.GetBlock(payload.Nonce)
 			}
 
-		case ResponseRpcMethod:
-			n.responseMutex.Lock()
-			n.responses[rpc.Id] = rpc
-			n.responseMutex.Unlock()
-			break
+			if err := n.Send(peer, GetBlockResponseRpcMethod, GetBlockResponsePayload{
+				Block: block,
+			}); err != nil {
+				fmt.Printf("failed to send response on %s: %v\n", GetBlockRpcMethod, err)
+				continue
+			}
+		case GetBlockResponseRpcMethod:
+			var payload GetBlockResponsePayload
+
+			if err := json.Unmarshal(rpc.Payload, &payload); err != nil {
+				fmt.Printf("failed deserialize payload %v: %v", rpc.Payload, err)
+				continue
+			}
+
+			// TODO: add processor
+			fmt.Printf("block %+v", payload.Block)
 		}
 	}
-}
-
-func (n *Node) GetRpcById(id string) (p2p.Rpc, error) {
-	retries := 0
-	for {
-		n.responseMutex.Lock()
-		rpc, ok := n.responses[id]
-		if ok {
-			delete(n.responses, id)
-			n.responseMutex.Unlock()
-			return rpc, nil
-		}
-
-		n.responseMutex.Unlock()
-		time.Sleep(time.Second * 5)
-		retries++
-
-		if retries > 3 {
-			return p2p.Rpc{}, fmt.Errorf("max retries")
-		}
-	}
-}
-
-func (n *Node) GetLatestBlock() blockchain.Block {
-	return n.Chain.GetLatestBlock()
 }
 
 func (n *Node) onPeer(peer p2p.Peer) error {

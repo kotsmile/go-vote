@@ -47,5 +47,13 @@ func (c *Chain) PushBlock(b Block) bool {
 }
 
 func (c *Chain) GetLatestBlock() Block {
-	return c.Blocks[len(c.Blocks)-1]
+	return c.GetBlock(c.Length() - 1)
+}
+
+func (c Chain) Length() int {
+	return len(c.Blocks)
+}
+
+func (c Chain) GetBlock(nonce int) Block {
+	return c.Blocks[nonce]
 }

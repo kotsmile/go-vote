@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/kotsmile/go-vote/blockchain"
+	"github.com/kotsmile/go-vote/node"
 	"github.com/kotsmile/go-vote/p2p"
-	"github.com/kotsmile/go-vote/server"
 )
 
 // block, err := blockchain.NewBlock(blockchain.GenesisBlock, wallet, []byte{})
@@ -27,20 +27,20 @@ import (
 func main() {
 	wallet := blockchain.NewWalletFromString("8ed1d4ab8975e20a666f42783be40a345f1acffbf9660db9bd93a87883f4ff6c")
 
-	server1 := server.NewServer(p2p.NewTcpTransport(":3001"), wallet)
-	server2 := server.NewServer(p2p.NewTcpTransport(":3002"), wallet)
+	node1 := node.NewNode(p2p.NewTcpTransport(":3001"), wallet)
+	node2 := node.NewNode(p2p.NewTcpTransport(":3002"), wallet)
 
-	go server1.Start()
-	go server2.Start()
+	go node1.Start()
+	go node2.Start()
 
 	time.Sleep(5 * time.Second)
 
-	server1.Transport.Dial(server2.Transport.Addr())
+	node1.Transport.Dial(node2.Transport.Addr())
 
 	time.Sleep(5 * time.Second)
 
 	var peer p2p.Peer
-	for _, v := range server1.Peers {
+	for _, v := range node1.Peers {
 		peer = v
 		break
 	}
@@ -48,7 +48,7 @@ func main() {
 		panic("peer is nil")
 	}
 
-	response, err := server1.SendGetLatestBlock(peer, server.GetLatestBlockPayload{})
+	response, err := node1.SendGetLatestBlock(peer, node.GetLatestBlockPayload{})
 	if err != nil {
 		fmt.Printf("failed to send get latest block: %v\n", err)
 		return

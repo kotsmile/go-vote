@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -13,15 +14,14 @@ type TcpTransport struct {
 	listener net.Listener
 	encoder  Encoder
 
-	onPeer func(Peer) error
+	OnPeer func(Peer) error
 }
 
 var _ Transport = (*TcpTransport)(nil)
 
-func NewTcpTransport(listenAddr string, onPeer func(Peer) error) *TcpTransport {
+func NewTcpTransport(listenAddr string) *TcpTransport {
 	return &TcpTransport{
 		listenAddr: listenAddr,
-		onPeer:     onPeer,
 		rpcCh:      make(chan Rpc, 1024),
 		encoder:    Encoder{},
 	}
@@ -29,6 +29,10 @@ func NewTcpTransport(listenAddr string, onPeer func(Peer) error) *TcpTransport {
 
 func (t *TcpTransport) Addr() string {
 	return t.listenAddr
+}
+
+func (t *TcpTransport) SetOnPeer(onPeer func(Peer) error) {
+	t.OnPeer = onPeer
 }
 
 func (t *TcpTransport) Close() error {
@@ -91,9 +95,11 @@ func (t *TcpTransport) handleConn(conn net.Conn, outbound bool) {
 	}()
 
 	peer := NewTcpPeer(conn, outbound)
-	if err := t.onPeer(peer); err != nil {
-		fmt.Printf("failed to call 'onPeer': %v", err)
-		return
+	if t.OnPeer != nil {
+		if err := t.OnPeer(peer); err != nil {
+			fmt.Printf("failed to call 'onPeer': %v", err)
+			return
+		}
 	}
 
 	for {
@@ -119,24 +125,17 @@ var _ Peer = (*TcpPeer)(nil)
 
 func NewTcpPeer(conn net.Conn, outbound bool) *TcpPeer {
 	return &TcpPeer{
-		Conn: conn,
-
+		Conn:     conn,
 		outbound: outbound,
 		encoder:  Encoder{},
 	}
 }
 
-func (p *TcpPeer) Send(rpc Rpc) error {
-	if err := p.encoder.Encode(p.Conn, rpc); err != nil {
-		return fmt.Errorf("failed to encode and send data %v: %v", rpc, err)
-	}
+func (p *TcpPeer) Send(data Rpc) error {
+	encoder := json.NewEncoder(p.Conn)
 
-	return nil
-}
-
-func (p *TcpPeer) Receive(data any) error {
-	if err := p.encoder.Decode(p.Conn, data); err != nil {
-		return fmt.Errorf("failed to decode data: %v", err)
+	if err := encoder.Encode(data); err != nil {
+		return fmt.Errorf("failed to encode and send data %+v: %v", data, err)
 	}
 
 	return nil

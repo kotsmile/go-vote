@@ -1,15 +1,16 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/kotsmile/go-vote/blockchain"
 	"github.com/kotsmile/go-vote/p2p"
 )
 
-// getBlocks
-
 const (
+	ResponseRpcMethod       p2p.RpcMethod = "response"
 	BroadcastBlockRpcMethod p2p.RpcMethod = "broadcastBlock"
 	GetLatestBlockRpcMethod p2p.RpcMethod = "getLatestBlock"
 )
@@ -21,9 +22,17 @@ type BroadcastBlockPayload struct {
 type BroadcastBlockResponse struct{}
 
 func SendBroadcastBlock(peer p2p.Peer, payload BroadcastBlockPayload) (BroadcastBlockResponse, error) {
+	id := uuid.New().String()
+
+	payloadData, err := json.Marshal(payload)
+	if err != nil {
+		return BroadcastBlockResponse{}, fmt.Errorf("failed to serialize %+v: %v", payload, err)
+	}
+
 	rpc := p2p.Rpc{
+		Id:      id,
 		Method:  BroadcastBlockRpcMethod,
-		Payload: payload,
+		Payload: payloadData,
 	}
 
 	if err := peer.Send(rpc); err != nil {
@@ -39,19 +48,32 @@ type GetLatestBlockResponse struct {
 	Block blockchain.Block `json:"block"`
 }
 
-func SendGetBlock(peer p2p.Peer, payload GetLatestBlockPayload) (GetLatestBlockResponse, error) {
+func SendGetLatestBlock(server *Server, peer p2p.Peer, payload GetLatestBlockPayload) (GetLatestBlockResponse, error) {
+	id := uuid.New().String()
+
+	payloadData, err := json.Marshal(payload)
+	if err != nil {
+		return GetLatestBlockResponse{}, fmt.Errorf("failed to serialize %+v: %v", payload, err)
+	}
+
 	rpc := p2p.Rpc{
+		Id:      id,
 		Method:  GetLatestBlockRpcMethod,
-		Payload: payload,
+		Payload: payloadData,
 	}
 
 	if err := peer.Send(rpc); err != nil {
 		return GetLatestBlockResponse{}, fmt.Errorf("failed to send rpc %+v: %v", rpc, err)
 	}
 
+	rpc, err = server.GetRpcById(id)
+	if err != nil {
+		return GetLatestBlockResponse{}, fmt.Errorf("failed to get rpc response %s: %v", id, err)
+	}
+
 	var response GetLatestBlockResponse
-	if err := peer.Receive(&response); err != nil {
-		return GetLatestBlockResponse{}, fmt.Errorf("failed to receive data: %v", err)
+	if err := json.Unmarshal(rpc.Payload, &response); err != nil {
+		return GetLatestBlockResponse{}, fmt.Errorf("failed to deserialize %s: %v", string(rpc.Payload), err)
 	}
 
 	return response, nil

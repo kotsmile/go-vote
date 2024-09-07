@@ -24,35 +24,21 @@ import (
 //
 // fmt.Println(block.Verify())
 
+const MainNodeAddr = ":3001"
+
 func main() {
+	fmt.Println("starting main node")
+	mainNode := node.NewNode(p2p.NewTcpTransport(MainNodeAddr), blockchain.NewRandomWallet())
+	go mainNode.Start()
+	time.Sleep(time.Second * 3)
+
+	fmt.Println("starting user node 1")
 	wallet := blockchain.NewWalletFromString("8ed1d4ab8975e20a666f42783be40a345f1acffbf9660db9bd93a87883f4ff6c")
-
-	node1 := node.NewNode(p2p.NewTcpTransport(":3001"), wallet)
-	node2 := node.NewNode(p2p.NewTcpTransport(":3002"), wallet)
-
+	node1 := node.NewNode(p2p.NewTcpTransport(":3002"), wallet)
 	go node1.Start()
-	go node2.Start()
+	time.Sleep(time.Second * 3)
 
-	time.Sleep(5 * time.Second)
-
-	node1.Transport.Dial(node2.Transport.Addr())
-
-	time.Sleep(5 * time.Second)
-
-	var peer p2p.Peer
-	for _, v := range node1.Peers {
-		peer = v
-		break
-	}
-	if peer == nil {
-		panic("peer is nil")
-	}
-
-	response, err := node1.SendGetLatestBlock(peer, node.GetLatestBlockPayload{})
-	if err != nil {
-		fmt.Printf("failed to send get latest block: %v\n", err)
-		return
-	}
-
-	fmt.Printf("response: %+v\n", response)
+	fmt.Println("connecting to main node")
+	node1.Transport.Dial(MainNodeAddr)
+	time.Sleep(time.Second * 3)
 }

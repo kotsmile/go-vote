@@ -14,7 +14,7 @@ type Node struct {
 	Signer    blockchain.Wallet
 	Transport p2p.Transport
 	Peers     map[string]p2p.Peer
-	Blocks    []blockchain.Block
+	Chain     blockchain.Chain
 
 	responses     map[string]p2p.Rpc
 	responseMutex sync.Mutex
@@ -24,7 +24,7 @@ func NewNode(transport p2p.Transport, signer blockchain.Wallet) *Node {
 	server := Node{
 		Transport: transport,
 		Signer:    signer,
-		Blocks:    []blockchain.Block{blockchain.GenesisBlock}, // TODO: get from sqlite
+		Chain:     blockchain.NewChain([]blockchain.Block{blockchain.GenesisBlock}), // TODO: get from sqlite
 		Peers:     make(map[string]p2p.Peer),
 		responses: make(map[string]p2p.Rpc),
 	}
@@ -96,7 +96,7 @@ func (n *Node) GetRpcById(id string) (p2p.Rpc, error) {
 }
 
 func (n *Node) GetLatestBlock() blockchain.Block {
-	return n.Blocks[len(n.Blocks)-1]
+	return n.Chain.GetLatestBlock()
 }
 
 func (n *Node) onPeer(peer p2p.Peer) error {

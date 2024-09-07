@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 )
@@ -49,21 +50,26 @@ func NewBlock(prevBlock Block, signer Wallet, data []byte) (Block, error) {
 
 func (b *Block) Mine(start uint64, stop uint64) error {
 	for salt := start; salt < stop; salt++ {
-		hash, err := b.BlockDataWithSalt(salt).Hash()
+		blockHash, err := b.BlockDataWithSalt(salt).Hash()
 		if err != nil {
 			return fmt.Errorf("failed to get hash for salt %d: %v", salt, err)
 		}
 
-		difficulty := GetDifficulty(hash)
+		difficulty := GetDifficulty(blockHash)
 
 		if difficulty >= b.Difficulty {
 			b.Salt = salt
-			b.BlockHash = hex.EncodeToString(hash[:])
+			b.BlockHash = hex.EncodeToString(blockHash[:])
 			break
 		}
 	}
 
 	return nil
+}
+
+func (b Block) Equal(other Block) bool {
+	return b.SignBlockData.Equal(other.SignBlockData) &&
+		b.Signature == other.Signature
 }
 
 func (b *Block) Sign() error {
@@ -106,12 +112,15 @@ func (b *Block) BlockDataWithSalt(salt uint64) BlockData {
 
 func (b *Block) Verify() (bool, error) {
 	signerAddress := b.From
-	data, err := b.SignBlockData.Hash()
+	blockHash, err := b.SignBlockData.Hash()
 	if err != nil {
 		return false, fmt.Errorf("failed to hash block: %v", err)
 	}
+	if b.BlockHash != hex.EncodeToString(blockHash[:]) {
+		return false, nil
+	}
 
-	ok, err := b.Signature.Verify(signerAddress, data[:])
+	ok, err := b.Signature.Verify(signerAddress, blockHash[:])
 	if err != nil {
 		return false, fmt.Errorf("failed to verify signagure: %v", err)
 	}
@@ -132,6 +141,15 @@ func (d BlockData) Hash() ([32]byte, error) {
 	return Hash(d)
 }
 
+func (d BlockData) Equal(other BlockData) bool {
+	return d.PrevBlockHash == other.PrevBlockHash &&
+		d.Nonce == other.Nonce &&
+		d.From == other.From &&
+		bytes.Equal(d.Data, other.Data) &&
+		d.Difficulty == other.Difficulty &&
+		d.Salt == other.Salt
+}
+
 type SignBlockData struct {
 	BlockData
 	BlockHash string `json:"blockHash"`
@@ -139,4 +157,9 @@ type SignBlockData struct {
 
 func (d SignBlockData) Hash() ([32]byte, error) {
 	return Hash(d)
+}
+
+func (d SignBlockData) Equal(other SignBlockData) bool {
+	return d.BlockData.Equal(other.BlockData) &&
+		d.BlockHash == other.BlockHash
 }

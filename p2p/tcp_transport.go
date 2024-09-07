@@ -9,7 +9,7 @@ import (
 type TcpTransport struct {
 	listenAddr string
 
-	rpcCh    chan RPC
+	rpcCh    chan Rpc
 	listener net.Listener
 	encoder  Encoder
 
@@ -22,7 +22,7 @@ func NewTcpTransport(listenAddr string, onPeer func(Peer) error) *TcpTransport {
 	return &TcpTransport{
 		listenAddr: listenAddr,
 		onPeer:     onPeer,
-		rpcCh:      make(chan RPC, 1024),
+		rpcCh:      make(chan Rpc, 1024),
 		encoder:    Encoder{},
 	}
 }
@@ -63,7 +63,7 @@ func (t *TcpTransport) ListenAndAccept() error {
 	return nil
 }
 
-func (t *TcpTransport) Consume() <-chan RPC {
+func (t *TcpTransport) Consume() <-chan Rpc {
 	return t.rpcCh
 }
 
@@ -97,7 +97,7 @@ func (t *TcpTransport) handleConn(conn net.Conn, outbound bool) {
 	}
 
 	for {
-		rpc := RPC{}
+		rpc := Rpc{}
 		err = t.encoder.Decode(conn, &rpc)
 		if err != nil {
 			return
@@ -126,9 +126,17 @@ func NewTcpPeer(conn net.Conn, outbound bool) *TcpPeer {
 	}
 }
 
-func (p *TcpPeer) Send(rpc RPC) error {
+func (p *TcpPeer) Send(rpc Rpc) error {
 	if err := p.encoder.Encode(p.Conn, rpc); err != nil {
 		return fmt.Errorf("failed to encode and send data %v: %v", rpc, err)
+	}
+
+	return nil
+}
+
+func (p *TcpPeer) Receive(data any) error {
+	if err := p.encoder.Decode(p.Conn, data); err != nil {
+		return fmt.Errorf("failed to decode data: %v", err)
 	}
 
 	return nil

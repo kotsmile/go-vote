@@ -1,7 +1,9 @@
 package p2p
 
-type RPC struct {
+type RpcMethod string
+
+type Rpc struct {
 	From    string
-	Method  string
-	Payload []byte
+	Method  RpcMethod `json:"method"`
+	Payload any       `json:"payload"`
 }

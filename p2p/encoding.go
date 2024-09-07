@@ -7,10 +7,10 @@ import (
 
 type Encoder struct{}
 
-func (Encoder) Decode(r io.Reader, msg *RPC) error {
-	return gob.NewDecoder(r).Decode(msg)
+func (Encoder) Decode(r io.Reader, data any) error {
+	return gob.NewDecoder(r).Decode(data)
 }
 
-func (Encoder) Encode(w io.Writer, msg RPC) error {
-	return gob.NewEncoder(w).Encode(msg)
+func (Encoder) Encode(w io.Writer, data any) error {
+	return gob.NewEncoder(w).Encode(data)
 }

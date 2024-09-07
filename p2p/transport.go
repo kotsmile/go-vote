@@ -1,7 +1,8 @@
 package p2p
 
 type Peer interface {
-	Send(RPC) error
+	Send(Rpc) error
+	Receive(any) error
 	Addr() string
 }
 
@@ -10,5 +11,5 @@ type Transport interface {
 	Dial(string) error
 	ListenAndAccept() error
 	Close() error
-	Consume() <-chan RPC
+	Consume() <-chan Rpc
 }

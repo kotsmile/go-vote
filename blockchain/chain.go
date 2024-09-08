@@ -95,11 +95,12 @@ func (c Chain) GetBlock(nonce int) (Block, bool) {
 	return c.Blocks[nonce], true
 }
 
-func (c Chain) Print() {
+func (c Chain) String() string {
+	s := ""
 	for _, block := range c.Blocks {
-		block.Print()
-		fmt.Println()
+		s = s + block.String() + "\n"
 	}
+	return s
 }
 
 type VotingWithBlock struct {

@@ -64,59 +64,52 @@ func main() {
 	fmt.Printf("node2: %s\n", node2Addr[:10])
 
 	fmt.Println("starting main node")
-	mainNode := node.NewNode(p2p.NewTcpTransport(MainNodeAddr), MainNodeWallet)
+	mainNode := node.NewNode(p2p.NewTcpTransport(MainNodeAddr), MainNodeWallet).WithName("MainNode")
 	go mainNode.Start(true)
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("starting user node 1")
-	node1 := node.NewNode(p2p.NewTcpTransport(":3002"), Node1Wallet)
+	node1 := node.NewNode(p2p.NewTcpTransport(":3002"), Node1Wallet).WithName("Node1")
 	go node1.Start(false)
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("starting user node 2")
-	node2 := node.NewNode(p2p.NewTcpTransport(":3003"), Node2Wallet)
+	node2 := node.NewNode(p2p.NewTcpTransport(":3003"), Node2Wallet).WithName("Node2")
 	go node2.Start(false)
-	time.Sleep(time.Second * 1)
 
-	for i := 0; i < 10; i++ {
-		if _, err := mainNode.SendVoting(blockchain.NewVoting("test")); err != nil {
-			fmt.Printf("failed to send voting: %v", err)
-		}
-	}
+	time.Sleep(5 * time.Second)
 
 	if err := node1.Connect(MainNodeAddr); err != nil {
 		panic(err)
 	}
 
-	for i := 0; i < 10; i++ {
-		if _, err := mainNode.SendVoting(blockchain.NewVoting("test")); err != nil {
-			fmt.Printf("failed to send voting: %v", err)
-		}
-	}
-
-	for i := 0; i < 10; i++ {
-		if _, err := node2.SendVoting(blockchain.NewVoting("test")); err != nil {
-			fmt.Printf("failed to send voting: %v", err)
-		}
-	}
+	time.Sleep(5 * time.Second)
 
 	if err := node2.Connect(MainNodeAddr); err != nil {
 		panic(err)
 	}
 
-	mainNode.Chain.Print()
+	time.Sleep(5 * time.Second)
 
-	for {
-		fmt.Println("Last block node1")
-		node1.Chain.GetLastBlock().Print()
+	fmt.Printf("node1.Peers: %+v\n", node1.Peers)
+	fmt.Printf("node2.Peers: %+v\n", node2.Peers)
+	fmt.Printf("mainNode.Peers: %+v\n", mainNode.Peers)
 
-		fmt.Println("Last block node2")
-		node2.Chain.GetLastBlock().Print()
+	// fmt.Println(mainNode.Chain.String())
 
-		fmt.Println("Last block main")
-		mainNode.Chain.GetLastBlock().Print()
-		time.Sleep(time.Second)
-	}
+	// for {
+	//
+	// 	fmt.Println("Last block main")
+	// 	fmt.Println(mainNode.Chain.GetLastBlock().String())
+	//
+	// 	fmt.Println("Last block node1")
+	// 	fmt.Println(node1.Chain.GetLastBlock().String())
+	//
+	// 	fmt.Println("Last block node2")
+	// 	fmt.Println(node2.Chain.GetLastBlock().String())
+	//
+	// 	time.Sleep(time.Second)
+	// }
 
 	select {}
 }

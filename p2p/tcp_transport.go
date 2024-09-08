@@ -142,5 +142,5 @@ func (p *TcpPeer) Send(data Rpc) error {
 }
 
 func (p *TcpPeer) Addr() string {
-	return p.RemoteAddr().String()
+	return p.Conn.RemoteAddr().String()
 }

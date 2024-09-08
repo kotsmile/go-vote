@@ -27,9 +27,11 @@ func (n *Node) Send(peer p2p.Peer, method p2p.RpcMethod, payload any) error {
 }
 
 const (
-	GetBlockRpcMethod         p2p.RpcMethod = "getBlock"
-	GetBlockResponseRpcMethod p2p.RpcMethod = GetBlockRpcMethod + "Response"
-	BroadcastBlockRpcMethod   p2p.RpcMethod = "broadcastBlock"
+	GetBlock         p2p.RpcMethod = "getBlock"
+	GetBlockResponse p2p.RpcMethod = GetBlock + "Response"
+	BroadcastBlock   p2p.RpcMethod = "broadcastBlock"
+	GetPeers         p2p.RpcMethod = "getPeers"
+	GetPeersResponse p2p.RpcMethod = GetPeers + "Response"
 )
 
 type GetBlockPayload struct {
@@ -43,4 +45,10 @@ type GetBlockResponsePayload struct {
 
 type BroadcastBlockPayload struct {
 	Block blockchain.Block `json:"block"`
+}
+
+type GetPeersPayload struct{}
+
+type GetPeersResponsePayload struct {
+	Peers []string `json:"peers"`
 }

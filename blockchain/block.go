@@ -53,15 +53,16 @@ func NewBlock(prevBlock Block, signer Wallet, data []byte) (Block, error) {
 	}, nil
 }
 
-func (b Block) Print() {
-	fmt.Printf("Block #%d\n", b.Nonce)
-	fmt.Printf("\tprevBlockHash: %s\n", b.PrevBlockHash)
-	fmt.Printf("\tnonce: %d\n", b.Nonce)
-	fmt.Printf("\tfrom: %s\n", b.From)
-	fmt.Printf("\tdata: %s\n", string(b.Data))
-	fmt.Printf("\tdifficulty: %d\n", b.Difficulty)
-	fmt.Printf("\tsalt: %d\n", b.Salt)
-	fmt.Printf("\tblockHash: %s\n", b.BlockHash)
+func (b Block) String() string {
+	s := fmt.Sprintf("Block #%d\n", b.Nonce) +
+		fmt.Sprintf("\tprevBlockHash: %s\n", b.PrevBlockHash) +
+		fmt.Sprintf("\tnonce: %d\n", b.Nonce) +
+		fmt.Sprintf("\tfrom: %s\n", b.From) +
+		fmt.Sprintf("\tdata: %s\n", string(b.Data)) +
+		fmt.Sprintf("\tdifficulty: %d\n", b.Difficulty) +
+		fmt.Sprintf("\tsalt: %d\n", b.Salt) +
+		fmt.Sprintf("\tblockHash: %s\n", b.BlockHash)
+	return s
 }
 
 func (b *Block) Mine(start uint64, stop uint64) error {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/kotsmile/go-vote/blockchain"
@@ -15,7 +16,13 @@ type Node struct {
 	Signer    blockchain.Wallet
 	Transport p2p.Transport
 	Peers     map[string]p2p.Peer
+
+	chainLock sync.Mutex
 	Chain     blockchain.Chain
+
+	// TODO: make atomic
+	conflictsLock sync.Mutex
+	conflicts     map[string]bool
 }
 
 func NewNode(transport p2p.Transport, signer blockchain.Wallet) *Node {
@@ -24,6 +31,8 @@ func NewNode(transport p2p.Transport, signer blockchain.Wallet) *Node {
 		Signer:    signer,
 		Chain:     blockchain.NewChain([]blockchain.Block{blockchain.GenesisBlock}), // TODO: get from sqlite
 		Peers:     make(map[string]p2p.Peer),
+
+		conflicts: make(map[string]bool),
 	}
 
 	transport.SetOnPeer(server.onPeer)
@@ -94,11 +103,49 @@ func (n *Node) Start(verbose bool) error {
 					}
 				}
 			} else if lastBlock.Nonce == payload.Block.Nonce-1 {
+
+				n.chainLock.Lock()
 				ok, err := n.Chain.PushBlock(payload.Block)
+				n.chainLock.Unlock()
+
 				if err != nil {
+					if errors.Is(err, blockchain.ErrIncorrectPrevBlockHash) {
+						n.conflictsLock.Lock()
+						n.conflicts[rpc.From] = true
+
+						total := len(n.Peers)
+						conflicts := 0
+						for addr := range n.Peers {
+							if n.conflicts[addr] {
+								conflicts++
+							}
+						}
+
+						n.conflictsLock.Unlock()
+
+						if conflicts > total/2 {
+							n.conflictsLock.Lock()
+							n.conflicts = make(map[string]bool)
+							n.conflictsLock.Unlock()
+
+							n.chainLock.Lock()
+							n.Chain.Reset()
+							n.chainLock.Unlock()
+
+							if err := n.Send(peer, GetBlockRpcMethod, GetBlockPayload{
+								Nonce: 1,
+							}); err != nil {
+								return fmt.Errorf("failed to send %s: %v", GetBlockRpcMethod, err)
+							}
+
+						}
+
+						continue
+					}
 					if !errors.Is(err, blockchain.ErrBlockIncluded) {
 						fmt.Printf("failed to push block: %v\n", err)
 					}
+
 					continue
 				}
 				if !ok {
@@ -121,7 +168,9 @@ func (n *Node) Start(verbose bool) error {
 				continue
 			}
 
+			n.chainLock.Lock()
 			ok, err := n.Chain.PushBlock(payload.Block)
+			n.chainLock.Unlock()
 			if err != nil {
 				if !errors.Is(err, blockchain.ErrBlockIncluded) {
 					fmt.Printf("failed to push block: %v\n", err)
@@ -190,7 +239,9 @@ func (n *Node) SendData(data []byte) (string, error) {
 		return "", fmt.Errorf("failed to sign block %+v: %v", newBlock, err)
 	}
 
+	n.chainLock.Lock()
 	ok, res := n.Chain.PushBlock(newBlock)
+	n.chainLock.Unlock()
 	if !ok {
 		return "", fmt.Errorf("failed to push block %+v: %s", newBlock, res)
 	}

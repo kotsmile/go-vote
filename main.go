@@ -94,14 +94,14 @@ func main() {
 		}
 	}
 
-	if err := node2.Connect(MainNodeAddr); err != nil {
-		panic(err)
-	}
-
 	for i := 0; i < 10; i++ {
 		if _, err := node2.SendVoting(blockchain.NewVoting("test")); err != nil {
 			fmt.Printf("failed to send voting: %v", err)
 		}
+	}
+
+	if err := node2.Connect(MainNodeAddr); err != nil {
+		panic(err)
 	}
 
 	mainNode.Chain.Print()

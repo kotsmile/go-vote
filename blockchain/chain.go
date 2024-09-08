@@ -73,6 +73,10 @@ func (c *Chain) PushBlock(b Block) (bool, error) {
 	return true, nil
 }
 
+func (c *Chain) Reset() {
+	c.Blocks = []Block{GenesisBlock}
+}
+
 func (c *Chain) GetLastBlock() Block {
 	block, _ := c.GetBlock(c.Length() - 1)
 	return block

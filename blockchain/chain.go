@@ -1,6 +1,9 @@
 package blockchain
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 type Chain struct {
 	Blocks []Block
@@ -12,48 +15,62 @@ func NewChain(initBlocks []Block) Chain {
 	}
 }
 
-func (c *Chain) Validate() bool {
+var (
+	ErrIncorrectGenesisBlock  = errors.New("incorrect genesis block")
+	ErrIncorrectPrevBlockHash = errors.New("incorrect prevBlockHash")
+	ErrIncorrectNonce         = errors.New("incorrect nonce")
+	ErrIncorrectSignature     = errors.New("incorrect signature")
+	ErrBlockIncluded          = errors.New("block has been included")
+)
+
+func (c *Chain) Validate() (bool, error) {
 	for i, block := range c.Blocks {
 		if i == 0 {
 			if !block.Equal(GenesisBlock) {
-				fmt.Println("incorrect genesis block")
-				return false
+				return false, ErrIncorrectGenesisBlock
 			}
 			continue
 		}
 
 		prevBlock := c.Blocks[i-1]
 		if block.PrevBlockHash != prevBlock.BlockHash {
-			fmt.Println("incorrect prevBlockHash")
-			return false
+			return false, ErrIncorrectPrevBlockHash
 		}
 
 		if block.Nonce-1 != prevBlock.Nonce {
-			fmt.Println("incorrect nonce")
-			return false
+			return false, ErrIncorrectNonce
 		}
 
 		res, err := block.Verify()
 		if err != nil {
-			return false
+			return false, fmt.Errorf("failed to verify: %v", err)
 		}
 		if !res {
-			fmt.Println("incorrect signature")
-			return false
+			return false, ErrIncorrectSignature
 		}
 	}
 
-	return true
+	return true, nil
 }
 
-func (c *Chain) PushBlock(b Block) bool {
+func (c *Chain) PushBlock(b Block) (bool, error) {
+	for _, block := range c.Blocks {
+		if block.Equal(b) {
+			return false, ErrBlockIncluded
+		}
+	}
+
 	newChain := NewChain(append(c.Blocks, b))
-	if !newChain.Validate() {
-		return false
+	ok, err := newChain.Validate()
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, fmt.Errorf("not ok")
 	}
 
 	c.Blocks = append(c.Blocks, b)
-	return true
+	return true, nil
 }
 
 func (c *Chain) GetLastBlock() Block {
@@ -68,16 +85,9 @@ func (c Chain) GetBlock(nonce int) Block {
 	return c.Blocks[nonce]
 }
 
-func (c Chain) PrintDebug() {
-	for i, block := range c.Blocks {
-		fmt.Printf("Block #%d\n", i)
-		fmt.Printf("\tprevBlockHash: %s\n", block.PrevBlockHash)
-		fmt.Printf("\tnonce: %d\n", block.Nonce)
-		fmt.Printf("\tfrom: %s\n", block.From)
-		fmt.Printf("\tdata: %s\n", string(block.Data))
-		fmt.Printf("\tdifficulty: %d\n", block.Difficulty)
-		fmt.Printf("\tsalt: %d\n", block.Salt)
-		fmt.Printf("\tblockHash: %s\n", block.BlockHash)
+func (c Chain) Print() {
+	for _, block := range c.Blocks {
+		block.Print()
 		fmt.Println()
 	}
 }

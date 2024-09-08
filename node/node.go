@@ -2,9 +2,9 @@ package node
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
-	"sync"
 
 	"github.com/kotsmile/go-vote/blockchain"
 	"github.com/kotsmile/go-vote/p2p"
@@ -15,24 +15,21 @@ type Node struct {
 	Transport p2p.Transport
 	Peers     map[string]p2p.Peer
 	Chain     blockchain.Chain
-	wg        *sync.WaitGroup
 }
 
-func NewNode(wg *sync.WaitGroup, transport p2p.Transport, signer blockchain.Wallet) *Node {
-	wg.Add(1)
+func NewNode(transport p2p.Transport, signer blockchain.Wallet) *Node {
 	server := Node{
 		Transport: transport,
 		Signer:    signer,
 		Chain:     blockchain.NewChain([]blockchain.Block{blockchain.GenesisBlock}), // TODO: get from sqlite
 		Peers:     make(map[string]p2p.Peer),
-		wg:        wg,
 	}
 
 	transport.SetOnPeer(server.onPeer)
 	return &server
 }
 
-func (n *Node) Start() error {
+func (n *Node) Start(verbose bool) error {
 	if err := n.Transport.ListenAndAccept(); err != nil {
 		return fmt.Errorf("failed to start transport")
 	}
@@ -74,6 +71,33 @@ func (n *Node) Start() error {
 
 			// TODO: add processor
 			fmt.Printf("block %+v", payload.Block)
+		case BroadcastBlockRpcMethod:
+			var payload BroadcastBlockPayload
+
+			if err := json.Unmarshal(rpc.Payload, &payload); err != nil {
+				fmt.Printf("failed deserialize payload %v: %v", rpc.Payload, err)
+				continue
+			}
+
+			ok, err := n.Chain.PushBlock(payload.Block)
+			if err != nil {
+				if !errors.Is(err, blockchain.ErrBlockIncluded) {
+					fmt.Printf("failed to push block: %v\n", err)
+				}
+				continue
+			}
+			if !ok {
+				fmt.Printf("not ok")
+			}
+
+			if verbose {
+				payload.Block.Print()
+			}
+
+			if err := n.BroadcastExcept(BroadcastBlockRpcMethod, payload, rpc.From); err != nil {
+				fmt.Printf("failed to broadcase block: %v", err)
+				continue
+			}
 		}
 	}
 }
@@ -102,11 +126,32 @@ func (n *Node) SendData(data []byte) (string, error) {
 		return "", fmt.Errorf("failed to sign block %+v: %v", newBlock, err)
 	}
 
-	if !n.Chain.PushBlock(newBlock) {
-		return "", fmt.Errorf("failed to push block %+v", newBlock)
+	ok, res := n.Chain.PushBlock(newBlock)
+	if !ok {
+		return "", fmt.Errorf("failed to push block %+v: %s", newBlock, res)
+	}
+
+	if err := n.BroadcastExcept(BroadcastBlockRpcMethod, BroadcastBlockPayload{
+		Block: newBlock,
+	}, ""); err != nil {
+		return "", fmt.Errorf("failed to broadcast new block")
 	}
 
 	return newBlock.BlockHash, nil
+}
+
+func (n *Node) BroadcastExcept(method p2p.RpcMethod, payload any, exceptAddress string) error {
+	for addr, peer := range n.Peers {
+		if peer.Addr() == exceptAddress {
+			continue
+		}
+		err := n.Send(peer, method, payload)
+		if err != nil {
+			return fmt.Errorf("failed to broadcast to %s: %v", addr, err)
+		}
+	}
+
+	return nil
 }
 
 func (n *Node) onPeer(peer p2p.Peer) error {

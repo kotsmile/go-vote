@@ -2,6 +2,13 @@ package blockchain
 
 import "encoding/json"
 
+type Method string
+
+const (
+	VoteMethod   Method = "vote"
+	VotingMethod Method = "voting"
+)
+
 type Voting struct {
 	Title string `json:"title"`
 }
@@ -27,6 +34,11 @@ func NewVote(blockHash string, value bool) Vote {
 		BlockHash: blockHash,
 		Value:     value,
 	}
+}
+
+type VoteData struct {
+	Method Method `json:"method"`
+	Data   []byte `json:"data"`
 }
 
 func (v Vote) Data() []byte {

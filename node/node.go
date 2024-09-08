@@ -216,17 +216,27 @@ func (n *Node) Sync() {
 }
 
 func (n *Node) SendVoting(voting blockchain.Voting) (string, error) {
-	return n.SendData(voting.Data())
+	return n.SendData(blockchain.VotingMethod, voting.Data())
 }
 
 func (n *Node) SendVote(vote blockchain.Vote) (string, error) {
-	return n.SendData(vote.Data())
+	return n.SendData(blockchain.VoteMethod, vote.Data())
 }
 
-func (n *Node) SendData(data []byte) (string, error) {
+func (n *Node) SendData(method blockchain.Method, data []byte) (string, error) {
+	call := blockchain.Call{
+		Method: method,
+		Data:   data,
+	}
+
+	callData, err := json.Marshal(call)
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize call %+v: %v", call, err)
+	}
+
 	lastBlock := n.Chain.GetLastBlock()
 
-	newBlock, err := blockchain.NewBlock(lastBlock, n.Signer, data)
+	newBlock, err := blockchain.NewBlock(lastBlock, n.Signer, callData)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new block: %v", err)
 	}

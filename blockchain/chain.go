@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 )
@@ -23,7 +24,7 @@ var (
 	ErrBlockIncluded          = errors.New("block has been included")
 )
 
-func (c *Chain) Validate() (bool, error) {
+func (c Chain) Validate() (bool, error) {
 	for i, block := range c.Blocks {
 		if i == 0 {
 			if !block.Equal(GenesisBlock) {
@@ -77,7 +78,7 @@ func (c *Chain) Reset() {
 	c.Blocks = []Block{GenesisBlock}
 }
 
-func (c *Chain) GetLastBlock() Block {
+func (c Chain) GetLastBlock() Block {
 	block, _ := c.GetBlock(c.Length() - 1)
 	return block
 }
@@ -99,4 +100,67 @@ func (c Chain) Print() {
 		block.Print()
 		fmt.Println()
 	}
+}
+
+type VotingWithBlock struct {
+	Voting
+	Block
+}
+
+func (c Chain) GetVotings() []VotingWithBlock {
+	voitings := make([]VotingWithBlock, 0)
+
+	for _, block := range c.Blocks {
+		var call Call
+		if err := json.Unmarshal(block.Data, &call); err != nil {
+			continue
+		}
+		if call.Method != VotingMethod {
+			continue
+		}
+
+		var voting Voting
+		if err := json.Unmarshal(call.Data, &voting); err != nil {
+			continue
+		}
+
+		voitings = append(voitings, VotingWithBlock{
+			Block:  block,
+			Voting: voting,
+		})
+	}
+
+	return voitings
+}
+
+func (c Chain) GetVotes(blockHash string) map[Address]bool {
+	votes := make(map[Address]bool)
+
+	for _, block := range c.Blocks {
+		var call Call
+		if err := json.Unmarshal(block.Data, &call); err != nil {
+			continue
+		}
+		if call.Method != VoteMethod {
+			continue
+		}
+
+		var vote Vote
+		if err := json.Unmarshal(call.Data, &vote); err != nil {
+			continue
+		}
+
+		if vote.BlockHash != blockHash {
+			continue
+		}
+
+		_, ok := votes[block.From]
+		if ok {
+			continue
+		}
+
+		votes[block.From] = vote.Value
+	}
+
+	return votes
 }

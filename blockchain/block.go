@@ -11,6 +11,11 @@ const (
 	ZeroHash          = "0000000000000000000000000000000000000000000000000000000000000000"
 )
 
+type Call struct {
+	Method Method `json:"method"`
+	Data   []byte `json:"data"`
+}
+
 type Block struct {
 	signer Wallet
 

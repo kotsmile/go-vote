@@ -165,14 +165,12 @@ func (n *Node) Start(verbose bool) error {
 			} else {
 			}
 		case GetPeers:
-			n.Log("get peers")
 			var peers []string
 			for addr := range n.Peers {
 				if addr != rpc.From {
 					peers = append(peers, addr)
 				}
 			}
-			n.Log(fmt.Sprintf("peers: %+v", peers))
 
 			if err := n.Send(peer, GetPeersResponse, GetPeersResponsePayload{
 				Peers: peers,
@@ -181,7 +179,6 @@ func (n *Node) Start(verbose bool) error {
 				continue
 			}
 		case GetPeersResponse:
-			n.Log("get peers response")
 			var payload GetPeersResponsePayload
 			if err := json.Unmarshal(rpc.Payload, &payload); err != nil {
 				n.Log(fmt.Sprintf("failed deserialize payload %v: %v", rpc.Payload, err))
@@ -193,7 +190,6 @@ func (n *Node) Start(verbose bool) error {
 				if ok {
 					continue
 				}
-				n.Log(fmt.Sprintf("GetPeersResponse: peerAddr %s", peerAddr))
 
 				if err := n.Connect(peerAddr); err != nil {
 					n.Log(fmt.Sprintf("failed to connect %s: %v", peerAddr, err))
@@ -221,9 +217,9 @@ func (n *Node) Start(verbose bool) error {
 				n.Log(fmt.Sprintf("not ok"))
 			}
 
-			// if verbose {
-			// 	n.Log(payload.Block.String())
-			// }
+			if verbose {
+				n.Log(payload.Block.String())
+			}
 
 			if err := n.BroadcastExcept(BroadcastBlock, payload, rpc.From); err != nil {
 				n.Log(fmt.Sprintf("failed to broadcast block: %v", err))
@@ -322,7 +318,6 @@ func (n *Node) BroadcastExcept(method p2p.RpcMethod, payload any, exceptAddress 
 }
 
 func (n *Node) onPeer(peer p2p.Peer) error {
-	n.Log("ON PEER")
 	n.Peers[peer.Addr()] = peer
 
 	if err := n.Send(peer, GetBlock, GetBlockPayload{
@@ -331,7 +326,6 @@ func (n *Node) onPeer(peer p2p.Peer) error {
 		n.Log(fmt.Sprintf("failed to send %s to %s: %v", GetBlock, peer.Addr(), err))
 	}
 
-	n.Log(fmt.Sprintf("sending get peers to %s", peer.Addr()))
 	if err := n.Send(peer, GetPeers, GetPeersPayload{}); err != nil {
 		n.Log(fmt.Sprintf("failed to send %s to %s: %v", GetPeers, peer.Addr(), err))
 	}

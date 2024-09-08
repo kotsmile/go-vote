@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	DefaultDifficulty = 3
+	DefaultDifficulty = 2
 	ZeroHash          = "0000000000000000000000000000000000000000000000000000000000000000"
 )
 

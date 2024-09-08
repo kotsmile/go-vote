@@ -74,15 +74,20 @@ func (c *Chain) PushBlock(b Block) (bool, error) {
 }
 
 func (c *Chain) GetLastBlock() Block {
-	return c.GetBlock(c.Length() - 1)
+	block, _ := c.GetBlock(c.Length() - 1)
+	return block
 }
 
 func (c Chain) Length() int {
 	return len(c.Blocks)
 }
 
-func (c Chain) GetBlock(nonce int) Block {
-	return c.Blocks[nonce]
+func (c Chain) GetBlock(nonce int) (Block, bool) {
+	if nonce >= len(c.Blocks) {
+		return Block{}, false
+	}
+
+	return c.Blocks[nonce], true
 }
 
 func (c Chain) Print() {

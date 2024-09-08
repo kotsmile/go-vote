@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"time"
 
 	"github.com/kotsmile/go-vote/blockchain"
 	"github.com/kotsmile/go-vote/p2p"
@@ -34,8 +35,17 @@ func (n *Node) Start(verbose bool) error {
 		return fmt.Errorf("failed to start transport")
 	}
 
+	// TODO: if my chain is incorrect resync full
+	go n.Sync()
+
 	for {
 		rpc := <-n.Transport.Consume()
+		peer, ok := n.Peers[rpc.From]
+		if !ok {
+			fmt.Printf("unknown sender %s\n", rpc.From)
+			continue
+		}
+
 		switch rpc.Method {
 		case GetBlockRpcMethod:
 			peer, ok := n.Peers[rpc.From]
@@ -52,11 +62,15 @@ func (n *Node) Start(verbose bool) error {
 
 			block := n.Chain.GetLastBlock()
 			if payload.Nonce != -1 && payload.Nonce < n.Chain.Length() {
-				block = n.Chain.GetBlock(payload.Nonce)
+				block, ok = n.Chain.GetBlock(payload.Nonce)
+				if !ok {
+					continue
+				}
 			}
 
 			if err := n.Send(peer, GetBlockResponseRpcMethod, GetBlockResponsePayload{
 				Block: block,
+				Nonce: payload.Nonce,
 			}); err != nil {
 				fmt.Printf("failed to send response on %s: %v\n", GetBlockRpcMethod, err)
 				continue
@@ -69,8 +83,36 @@ func (n *Node) Start(verbose bool) error {
 				continue
 			}
 
-			// TODO: add processor
-			fmt.Printf("block %+v", payload.Block)
+			lastBlock := n.Chain.GetLastBlock()
+			if payload.Nonce == -1 {
+				if lastBlock.Nonce < payload.Block.Nonce {
+					fmt.Printf("start syncing past blocks\n")
+					if err := n.Send(peer, GetBlockRpcMethod, GetBlockPayload{
+						Nonce: int(lastBlock.Nonce + 1),
+					}); err != nil {
+						return fmt.Errorf("failed to send %s: %v", GetBlockRpcMethod, err)
+					}
+				}
+			} else if lastBlock.Nonce == payload.Block.Nonce-1 {
+				ok, err := n.Chain.PushBlock(payload.Block)
+				if err != nil {
+					if !errors.Is(err, blockchain.ErrBlockIncluded) {
+						fmt.Printf("failed to push block: %v\n", err)
+					}
+					continue
+				}
+				if !ok {
+					fmt.Printf("not ok\n")
+				}
+
+				if err := n.Send(peer, GetBlockRpcMethod, GetBlockPayload{
+					Nonce: int(payload.Block.Nonce + 1),
+				}); err != nil {
+					return fmt.Errorf("failed to send %s: %v", GetBlockRpcMethod, err)
+				}
+
+			} else {
+			}
 		case BroadcastBlockRpcMethod:
 			var payload BroadcastBlockPayload
 
@@ -87,7 +129,7 @@ func (n *Node) Start(verbose bool) error {
 				continue
 			}
 			if !ok {
-				fmt.Printf("not ok")
+				fmt.Printf("not ok\n")
 			}
 
 			if verbose {
@@ -97,6 +139,28 @@ func (n *Node) Start(verbose bool) error {
 			if err := n.BroadcastExcept(BroadcastBlockRpcMethod, payload, rpc.From); err != nil {
 				fmt.Printf("failed to broadcase block: %v", err)
 				continue
+			}
+		}
+	}
+}
+
+func (n *Node) Connect(addr string) error {
+	if err := n.Transport.Dial(addr); err != nil {
+		return fmt.Errorf("failed to dial %s: %v", addr, err)
+	}
+
+	return nil
+}
+
+func (n *Node) Sync() {
+	for {
+		<-time.Tick(time.Second * 10)
+
+		fmt.Println("syncing")
+		for _, peer := range n.Peers {
+			if err := n.Send(peer, GetBlockRpcMethod, GetBlockPayload{
+				Nonce: -1,
+			}); err != nil {
 			}
 		}
 	}
@@ -156,5 +220,12 @@ func (n *Node) BroadcastExcept(method p2p.RpcMethod, payload any, exceptAddress 
 
 func (n *Node) onPeer(peer p2p.Peer) error {
 	n.Peers[peer.Addr()] = peer
+
+	if err := n.Send(peer, GetBlockRpcMethod, GetBlockPayload{
+		Nonce: -1,
+	}); err != nil {
+		return fmt.Errorf("failed to send %s: %v", GetBlockRpcMethod, err)
+	}
+
 	return nil
 }

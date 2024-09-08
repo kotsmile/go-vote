@@ -38,6 +38,7 @@ type GetBlockPayload struct {
 
 type GetBlockResponsePayload struct {
 	Block blockchain.Block `json:"block"`
+	Nonce int              `json:"nonce"`
 }
 
 type BroadcastBlockPayload struct {

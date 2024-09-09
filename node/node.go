@@ -106,8 +106,16 @@ func (n *Node) Start(verbose bool) error {
 					}); err != nil {
 						return fmt.Errorf("failed to send %s: %v", GetBlock, err)
 					}
+				} else if lastBlock.Nonce > payload.Block.Nonce {
+					fmt.Printf("start checking past blocks\n")
+					if err := n.Send(peer, GetBlock, GetBlockPayload{
+						Nonce: int(payload.Block.Nonce),
+					}); err != nil {
+						return fmt.Errorf("failed to send %s: %v", GetBlock, err)
+					}
 				}
 			} else if lastBlock.Nonce == payload.Block.Nonce-1 {
+				// n.Log(fmt.Sprintf("lastBlock.Nonce: %d; payload.Block.Nonce", lastBlock.Nonce, payload.Block.Nonce))
 
 				n.chainLock.Lock()
 				ok, err := n.Chain.PushBlock(payload.Block)
@@ -125,10 +133,12 @@ func (n *Node) Start(verbose bool) error {
 								conflicts++
 							}
 						}
+						n.Log(fmt.Sprintf("total: %d; conflicts: %d", total, conflicts))
 
 						n.conflictsLock.Unlock()
 
 						if conflicts > total/2 {
+							n.Log("reseting chain")
 							n.conflictsLock.Lock()
 							n.conflicts = make(map[string]bool)
 							n.conflictsLock.Unlock()
@@ -164,6 +174,46 @@ func (n *Node) Start(verbose bool) error {
 				}
 
 			} else {
+				localBlock, ok := n.Chain.GetBlock(payload.Nonce)
+				if !ok {
+					continue
+				}
+				if localBlock.Equal(payload.Block) {
+					continue
+				}
+
+				n.conflictsLock.Lock()
+				n.conflicts[rpc.From] = true
+
+				total := len(n.Peers)
+				conflicts := 0
+				for addr := range n.Peers {
+					if n.conflicts[addr] {
+						conflicts++
+					}
+				}
+				n.Log(fmt.Sprintf("total: %d; conflicts: %d", total, conflicts))
+
+				n.conflictsLock.Unlock()
+
+				if conflicts > total/2 {
+					n.Log("reseting chain")
+					n.conflictsLock.Lock()
+					n.conflicts = make(map[string]bool)
+					n.conflictsLock.Unlock()
+
+					n.chainLock.Lock()
+					n.Chain.Reset()
+					n.chainLock.Unlock()
+
+					if err := n.Send(peer, GetBlock, GetBlockPayload{
+						Nonce: 1,
+					}); err != nil {
+						return fmt.Errorf("failed to send %s: %v", GetBlock, err)
+					}
+
+				}
+
 			}
 		case GetPeers:
 			var peers []string
@@ -243,6 +293,14 @@ func (n *Node) Connect(addr string) error {
 func (n *Node) Sync() {
 	for {
 		<-time.Tick(time.Second * 10)
+
+		ok, _ := n.Chain.Validate()
+		if !ok {
+			n.Log("invalid chain file; reseting chain")
+			n.chainLock.Lock()
+			n.Chain.Reset()
+			n.chainLock.Unlock()
+		}
 
 		n.Log("syncing")
 		for _, peer := range n.Peers {

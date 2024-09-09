@@ -11,6 +11,9 @@ import (
 
 const MainNodeAddr = ":3001"
 
+// TODO: if amount of bad nodes will be more that 50% it is possible to cancel blocks
+// add ability for block finilization after creation to be sure that history is correct
+
 func connectionAndBroadcasting() {
 	fmt.Println("starting main node")
 	mainNode := node.NewNode("main.json", p2p.NewTcpTransport(MainNodeAddr), blockchain.NewRandomWallet())

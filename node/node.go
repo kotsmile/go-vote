@@ -26,13 +26,14 @@ type Node struct {
 	conflicts     map[string]bool
 }
 
-func NewNode(transport p2p.Transport, signer blockchain.Wallet) *Node {
+func NewNode(filepath string, transport p2p.Transport, signer blockchain.Wallet) *Node {
+	chain, _ := blockchain.NewChainFromFile(filepath)
+
 	server := Node{
 		Transport: transport,
 		Signer:    signer,
-		Chain:     blockchain.NewChain([]blockchain.Block{blockchain.GenesisBlock}), // TODO: get from sqlite
+		Chain:     chain,
 		Peers:     make(map[string]p2p.Peer),
-
 		conflicts: make(map[string]bool),
 	}
 

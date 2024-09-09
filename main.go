@@ -13,18 +13,18 @@ const MainNodeAddr = ":3001"
 
 func connectionAndBroadcasting() {
 	fmt.Println("starting main node")
-	mainNode := node.NewNode(p2p.NewTcpTransport(MainNodeAddr), blockchain.NewRandomWallet())
+	mainNode := node.NewNode("main.json", p2p.NewTcpTransport(MainNodeAddr), blockchain.NewRandomWallet())
 	go mainNode.Start(true)
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("starting user node 1")
 	wallet := blockchain.NewWalletFromString("8ed1d4ab8975e20a666f42783be40a345f1acffbf9660db9bd93a87883f4ff6c")
-	node1 := node.NewNode(p2p.NewTcpTransport(":3002"), wallet)
+	node1 := node.NewNode("node1.json", p2p.NewTcpTransport(":3002"), wallet)
 	go node1.Start(false)
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("starting user node 2")
-	node2 := node.NewNode(p2p.NewTcpTransport(":3003"), wallet)
+	node2 := node.NewNode("node2.json", p2p.NewTcpTransport(":3003"), wallet)
 	go node2.Start(false)
 	time.Sleep(time.Second * 1)
 
@@ -64,17 +64,17 @@ func main() {
 	fmt.Printf("node2: %s\n", node2Addr[:10])
 
 	fmt.Println("starting main node")
-	mainNode := node.NewNode(p2p.NewTcpTransport(MainNodeAddr), MainNodeWallet).WithName("MainNode")
+	mainNode := node.NewNode("main.json", p2p.NewTcpTransport(MainNodeAddr), MainNodeWallet).WithName("MainNode")
 	go mainNode.Start(true)
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("starting user node 1")
-	node1 := node.NewNode(p2p.NewTcpTransport(":3002"), Node1Wallet).WithName("Node1")
+	node1 := node.NewNode("node1.json", p2p.NewTcpTransport(":3002"), Node1Wallet).WithName("Node1")
 	go node1.Start(false)
 	time.Sleep(time.Second * 1)
 
 	fmt.Println("starting user node 2")
-	node2 := node.NewNode(p2p.NewTcpTransport(":3003"), Node2Wallet).WithName("Node2")
+	node2 := node.NewNode("node2.json", p2p.NewTcpTransport(":3003"), Node2Wallet).WithName("Node2")
 	go node2.Start(false)
 
 	time.Sleep(5 * time.Second)
@@ -90,10 +90,6 @@ func main() {
 	}
 
 	time.Sleep(5 * time.Second)
-
-	fmt.Printf("node1.Peers: %+v\n", node1.Peers)
-	fmt.Printf("node2.Peers: %+v\n", node2.Peers)
-	fmt.Printf("mainNode.Peers: %+v\n", mainNode.Peers)
 
 	// fmt.Println(mainNode.Chain.String())
 

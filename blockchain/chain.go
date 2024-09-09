@@ -4,15 +4,42 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 )
 
 type Chain struct {
-	Blocks []Block
+	Blocks   []Block
+	filepath string
+}
+
+const EmptyFilepath = "::"
+
+func NewChainFromFile(filepath string) (Chain, error) {
+	var blocks []Block
+
+	_, err := os.Stat(filepath)
+	if errors.Is(err, os.ErrNotExist) {
+		blocks = []Block{GenesisBlock}
+	} else {
+		data, err := os.ReadFile(filepath)
+		if err != nil {
+			return Chain{}, fmt.Errorf("failed to read file %s: %v", filepath, err)
+		}
+		if err := json.Unmarshal(data, &blocks); err != nil {
+			return Chain{}, fmt.Errorf("failed to deserialize %v: %v", data, err)
+		}
+	}
+
+	return Chain{
+		Blocks:   blocks,
+		filepath: filepath,
+	}, nil
 }
 
 func NewChain(initBlocks []Block) Chain {
 	return Chain{
-		Blocks: initBlocks,
+		Blocks:   initBlocks,
+		filepath: EmptyFilepath,
 	}
 }
 
@@ -71,11 +98,28 @@ func (c *Chain) PushBlock(b Block) (bool, error) {
 	}
 
 	c.Blocks = append(c.Blocks, b)
+	c.SaveFile()
+
 	return true, nil
+}
+
+func (c Chain) SaveFile() error {
+	if c.filepath != EmptyFilepath {
+		data, err := json.Marshal(c.Blocks)
+		if err != nil {
+			return fmt.Errorf("failed to serialize blocks: %v", err)
+		}
+		if err := os.WriteFile(c.filepath, data, 0644); err != nil {
+			return fmt.Errorf("failed to save to file: %v", err)
+		}
+	}
+
+	return nil
 }
 
 func (c *Chain) Reset() {
 	c.Blocks = []Block{GenesisBlock}
+	c.SaveFile()
 }
 
 func (c Chain) GetLastBlock() Block {
